@@ -8,18 +8,14 @@ const app = express();
 
 app.use(express.json());
 
-// Logic goes here
-// importing user context
 const User = require("./model/user");
-
+const shop = require("./model/shop");
+const review = require("./model/review");
 // Register
 app.post("/register", async (req, res) => {
-// our register logic goes here...
-try {
-    // Get user input
-    const { first_name, last_name, email, password } = req.body;
+  try {
+    const { first_name, last_name, location, email, password } = req.body;
 
-    // Validate user input
     if (!(email && password && first_name && last_name)) {
       res.status(400).send("All input is required");
     }
@@ -32,14 +28,13 @@ try {
       return res.status(409).send("User Already Exist. Please Login");
     }
 
-    //Encrypt user password
     encryptedPassword = await bcrypt.hash(password, 10);
 
-    // Create user in our database
     const user = await User.create({
       first_name,
       last_name,
-      email: email.toLowerCase(), // sanitize: convert email to lowercase
+      location,
+      email: email.toLowerCase(),
       password: encryptedPassword,
     });
 
@@ -59,53 +54,116 @@ try {
   } catch (err) {
     console.log(err);
   }
-  // Our register logic ends here
 });
-
 
 // Login
 app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-    // Our login logic starts here
+    if (!(email && password)) {
+      res.status(400).send("All input is required");
+    }
+    // Validate if user exist in our database
+    const user = await User.findOne({ email });
+
+    if (user && (await bcrypt.compare(password, user.password))) {
+      const token = jwt.sign(
+        { user_id: user._id, email },
+        process.env.TOKEN_KEY,
+        {
+          expiresIn: "2h",
+        }
+      );
+
+      user.token = token;
+
+      res.status(200).json(user);
+    }
+    res.status(400).send("Invalid Credentials");
+  } catch (err) {
+    console.log(err);
+  }
+});
+
+const auth = require("./middleware/auth");
+
+app.post("/welcome", auth, (req, res) => {
+  res.status(200).send("Welcome 🙌 ");
+});
+
+//shopDetails
+app.post("/shopDetails", auth, async (req, res) => {
+  try {
+    const { shopName, shopCategory, shopLocation } = req.body;
+
+    if (!(shopName && shopCategory && shopLocation)) {
+      res.status(400).send("All input is required");
+    }
+    const oldShop = await shop.findOne({ shopName });
+
+    if (oldShop) {
+      return res.status(409).send("Shop Already Exist.");
+    }
+
+    const Shop = await shop.create({
+      shopName,
+      shopCategory,
+      shopLocation,
+    });
+
+    // shop.save();
+    res.status(200).json(Shop);
+  } catch (err) {
+    console.log(err);
+  }
+});
+
+//shopReview
+app.post("/shopReview", auth, async (req, res) => {
     try {
-      // Get user input
-      const { email, password } = req.body;
+      const { shopName, shopReview } = req.body;
   
-      // Validate user input
-      if (!(email && password)) {
+      if (!(shopName && shopReview)) {
         res.status(400).send("All input is required");
       }
-      // Validate if user exist in our database
-      const user = await User.findOne({ email });
+      const shopExist = await shop.findOne({ shopName });
   
-      if (user && (await bcrypt.compare(password, user.password))) {
-        // Create token
-        const token = jwt.sign(
-          { user_id: user._id, email },
-          process.env.TOKEN_KEY,
-          {
-            expiresIn: "2h",
-          }
-        );
-  
-        // save user token
-        user.token = token;
-  
-        // user
-        res.status(200).json(user);
+      if (!shopExist) {
+        return res.status(409).send("Shop Does not Exist.");
       }
-      res.status(400).send("Invalid Credentials");
+  
+      const Shopreview = await review.create({
+        shopName,
+        shopReview
+      });
+  
+      // shop.save();
+      res.status(200).json(Shopreview);
     } catch (err) {
       console.log(err);
     }
-    // Our register logic ends here
   });
   
-  const auth = require("./middleware/auth");
-
-  app.post("/welcome", auth, (req, res) => {
-    res.status(200).send("Welcome 🙌 ");
+//getShop 
+//shopReview
+app.get("/shopList", auth, async (req, res) => {
+    try {
+  
+      
+      if (User.location === shop.shopLocation) {
+          const data = await shop.find({shop});
+          console.log(data);
+        //   console.log(Shop.shopName);
+        return  res.status(200).json(data);
+      }
+      return res.status(409).send("Shop Does not Exist.");
+    } catch (err) {
+      console.log(err);
+    }
   });
+
+
 
 
 module.exports = app;
