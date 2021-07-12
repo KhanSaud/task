@@ -28,7 +28,7 @@ app.post("/register", async (req, res) => {
       return res.status(409).send("User Already Exist. Please Login");
     }
 
-    encryptedPassword = await bcrypt.hash(password, 10);
+    encryptedPassword = await bcrypt.hash(password,10);
 
     const user = await User.create({
       first_name,
@@ -146,7 +146,7 @@ app.post("/shopReview", auth, async (req, res) => {
   });
   
 //getShop 
-//shopReview
+
 app.get("/shopList", auth, async (req, res) => {
     try {
   
@@ -163,6 +163,23 @@ app.get("/shopList", auth, async (req, res) => {
     }
   });
 
+
+  
+//getShopLocation wise PENDING
+
+app.post("/shopListLocation", auth, async (req, res) => {
+    try {
+        const {shopLocation} = req.body;
+      if ((User.location === shop.shopLocation) === shopLocation) {
+          const data = await shop.find({shop});
+          console.log(data);
+        return  res.status(200).json(data);
+      }
+      return res.status(409).send("Shop Does not Exist.");
+    } catch (err) {
+      console.log(err);
+    }
+  });
 
 
 
